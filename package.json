@@ -1,0 +1,30 @@
+{
+  "name": "folder-sort",
+  "version": "0.1.0",
+  "description": "Sort folders A-Z or Z-A in Obsidian's File explorer.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "install:vault": "scripts/install-to-vault.sh",
+    "test": "vitest run",
+    "typecheck": "tsc -noEmit -skipLibCheck"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "folders",
+    "sort"
+  ],
+  "author": "Tomas Gutierrez",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "builtin-modules": "^5.0.0",
+    "esbuild": "^0.28.0",
+    "obsidian": "^1.12.3",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  }
+}

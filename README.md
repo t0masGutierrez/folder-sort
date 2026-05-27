@@ -46,7 +46,7 @@ Use Settings > Community plugins > Folder Sort to choose the Folder placement mo
 To install, run the command:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/t0masGutierrez/folder-sort.git
 cd folder-sort
 scripts/install-to-vault.sh "/path/to/your/vault"
 ```

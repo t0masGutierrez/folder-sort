@@ -3,7 +3,7 @@
   "name": "Folder Sort",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Sort folders A-Z or Z-A in Obsidian's File explorer while preserving native file sorting.",
+  "description": "Sort folders A-Z or Z-A",
   "author": "Tomas Gutierrez",
   "isDesktopOnly": false
 }

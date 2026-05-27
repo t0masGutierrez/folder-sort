@@ -180,9 +180,7 @@ export class FileExplorerAdapter {
 
         if (typeof originalSetTitle === "function") {
           item.setTitle = function patchedSetTitle(title: string | DocumentFragment): unknown {
-            if (typeof title === "string") {
-              capturedTitle = title;
-            }
+            capturedTitle = getMenuTitleText(title);
 
             return originalSetTitle.call(this, title);
           };
@@ -285,4 +283,11 @@ export class FileExplorerAdapter {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function getMenuTitleText(title: string | DocumentFragment): string | null {
+  const text = typeof title === "string" ? title : title.textContent;
+  const normalizedText = text?.trim();
+
+  return normalizedText ? normalizedText : null;
 }

@@ -186,4 +186,62 @@ describe("FileExplorerAdapter", () => {
 
     adapter.detach();
   });
+
+  it("injects folder sort choices when native menu titles are document fragments", () => {
+    class FakeMenuItem {
+      title = "";
+
+      setTitle(title: string | DocumentFragment) {
+        this.title = typeof title === "string" ? title : title.textContent ?? "";
+        return this;
+      }
+
+      setChecked(_checked: boolean | null) {
+        return this;
+      }
+
+      onClick(_callback: () => void) {
+        return this;
+      }
+    }
+
+    class FakeMenu {
+      items: FakeMenuItem[] = [];
+
+      addItem(callback: (item: FakeMenuItem) => unknown) {
+        const item = new FakeMenuItem();
+        this.items.push(item);
+        callback(item);
+        return this;
+      }
+    }
+
+    const view = {
+      getSortedFolderItems: vi.fn((_folder: unknown) => []),
+      requestSort: vi.fn()
+    };
+    const adapter = new FileExplorerAdapter({
+      app: makeApp(view),
+      getDirection: () => "asc",
+      menuConstructors: {
+        Menu: FakeMenu
+      },
+      onSelectDirection: vi.fn()
+    });
+
+    adapter.attach();
+
+    const menu = new FakeMenu();
+    menu.addItem((item) => item.setTitle({ textContent: "File name (A to Z)" } as DocumentFragment));
+    menu.addItem((item) => item.setTitle({ textContent: "File name (Z to A)" } as DocumentFragment));
+
+    expect(menu.items.map((item) => item.title)).toEqual([
+      "File name (A to Z)",
+      "File name (Z to A)",
+      "Folder name (A to Z)",
+      "Folder name (Z to A)"
+    ]);
+
+    adapter.detach();
+  });
 });

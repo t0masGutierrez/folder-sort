@@ -43,7 +43,7 @@ Use Settings > Community plugins > Folder Sort to choose the Folder placement mo
 
 ## Installation
 
-To install, run the command:
+To install, run these commands:
 
 ```bash
 git clone https://github.com/t0masGutierrez/folder-sort.git

@@ -12,6 +12,9 @@ describe("command labels", () => {
     expect(main).toContain('name: "A to Z"');
     expect(main).toContain('name: "Z to A"');
     expect(main).toContain('name: "Toggle"');
+    expect(main).toContain('id: "set-a-to-z"');
+    expect(main).toContain('id: "set-z-to-a"');
+    expect(main).toContain('id: "toggle-direction"');
 
     expect(readme).toContain("- Folder Sort: A to Z");
     expect(readme).toContain("- Folder Sort: Z to A");
@@ -20,5 +23,7 @@ describe("command labels", () => {
     expect(`${main}\n${readme}`).not.toContain("Set folders A to Z");
     expect(`${main}\n${readme}`).not.toContain("Set folders Z to A");
     expect(`${main}\n${readme}`).not.toContain("Toggle folder sort direction");
+    expect(main).not.toContain("set-folder-sort");
+    expect(main).not.toContain("toggle-folder-sort");
   });
 });

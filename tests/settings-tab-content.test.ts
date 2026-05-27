@@ -29,6 +29,7 @@ describe("settings tab content", () => {
     const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
 
     expect(settingsTab).toContain('.setName("Folder placement")');
+    expect(settingsTab).not.toContain(".setHeading()");
     expect(settingsTab).toContain("Existing order");
     expect(settingsTab).not.toContain("Keep Obsidian order");
     expect(settingsTab).toContain("Folders first");

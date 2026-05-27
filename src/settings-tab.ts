@@ -18,8 +18,6 @@ export class FolderSortSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName("Folder Sort").setHeading();
-
     // Direction controls live in the File explorer menu and command palette.
     new Setting(containerEl)
       .setName("Folder placement")

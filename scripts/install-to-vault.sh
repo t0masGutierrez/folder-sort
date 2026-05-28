@@ -40,4 +40,4 @@ mkdir -p "$PLUGIN_DIR"
 cp "$PROJECT_ROOT/main.js" "$PROJECT_ROOT/manifest.json" "$PLUGIN_DIR/"
 rm -f "$PLUGIN_DIR/styles.css"
 
-printf 'Installed Folder Sort to %s\n' "$PLUGIN_DIR"
+printf 'Installed Folder Sort at %s\n' "$PLUGIN_DIR"

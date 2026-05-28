@@ -10,7 +10,12 @@ Installs dependencies, builds the plugin, then installs it into the requested va
 USAGE
 }
 
-if [[ $# -ne 1 || -z "${1:-}" || "${1:-}" == "/path/to/your/vault" ]]; then
+if [[ "${1:-}" == "/path/to/your/vault" ]]; then
+  printf 'Please replace "/path/to/your/vault" with the path to your vault\n' >&2
+  exit 64
+fi
+
+if [[ $# -ne 1 || -z "${1:-}" ]]; then
   usage >&2
   exit 64
 fi

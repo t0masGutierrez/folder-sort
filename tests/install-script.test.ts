@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,6 +10,18 @@ const scriptPath = join(repoRoot, "scripts", "install-to-vault.sh");
 describe("install-to-vault.sh", () => {
   it("requires the user to pass an explicit vault path", () => {
     expect(() => execFileSync(scriptPath, { cwd: repoRoot, encoding: "utf8" })).toThrow();
+  });
+
+  it("explains how to replace the example vault path", () => {
+    const result = spawnSync(scriptPath, ["/path/to/your/vault"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+
+    expect(result.status).toBe(64);
+    expect(result.stderr).toBe(
+      'Please replace "/path/to/your/vault" with the path to your vault\n'
+    );
   });
 
   it("copies the Obsidian release files into the requested vault plugin folder", () => {

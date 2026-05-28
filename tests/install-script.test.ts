@@ -44,8 +44,12 @@ describe("install-to-vault.sh", () => {
       );
       expect(existsSync(join(pluginPath, "styles.css"))).toBe(false);
       expect(output).toContain("Installing dependencies...");
-      expect(output).toContain("Building Folder Sort...");
       expect(output).toContain(pluginPath);
+      expect(output).not.toContain("up to date");
+      expect(output).not.toContain("npm fund");
+      expect(output).not.toContain("found 0 vulnerabilities");
+      expect(output).not.toContain("Building Folder Sort...");
+      expect(output).not.toContain("> folder-sort");
     } finally {
       rmSync(tempDir, { force: true, recursive: true });
     }

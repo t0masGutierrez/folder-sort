@@ -26,10 +26,8 @@ VAULT="$1"
 PLUGIN_DIR="$VAULT/.obsidian/plugins/folder-sort"
 
 printf 'Installing dependencies...\n'
-(cd "$PROJECT_ROOT" && npm install --include=dev)
-
-printf 'Building Folder Sort...\n'
-(cd "$PROJECT_ROOT" && npm run build)
+(cd "$PROJECT_ROOT" && npm install --include=dev --no-audit --fund=false --silent)
+(cd "$PROJECT_ROOT" && npm run --silent build)
 
 for artifact in main.js manifest.json; do
   if [[ ! -f "$PROJECT_ROOT/$artifact" ]]; then

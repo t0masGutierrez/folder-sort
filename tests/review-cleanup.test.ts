@@ -6,6 +6,15 @@ import { describe, expect, it } from "vitest";
 const repoRoot = resolve(__dirname, "..");
 
 describe("pre-push cleanup", () => {
+  it("keeps Obsidian out of the plugin manifest description", () => {
+    const manifest = JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as {
+      description?: string;
+    };
+
+    expect(manifest.description).toBe("Sort folders A-Z or Z-A.");
+    expect(manifest.description).not.toMatch(/\bObsidian\b/i);
+  });
+
   it("does not keep an empty stylesheet in the release artifact list", () => {
     const script = readFileSync(join(repoRoot, "scripts", "install-to-vault.sh"), "utf8");
     const readme = readFileSync(join(repoRoot, "README.md"), "utf8");

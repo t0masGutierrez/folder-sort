@@ -3,12 +3,14 @@ import type {
   AttachResult,
   FolderPlacement,
   FolderSortDirection,
+  SortableAbstractFile,
   SortableTreeItem
 } from "./types";
 
 const FILE_EXPLORER_VIEW_TYPE = "file-explorer";
 const FILE_NAME_ASC_TITLES = new Set(["File name (A to Z)", "Sort by file name (A to Z)"]);
 const FILE_NAME_DESC_TITLES = new Set(["File name (Z to A)", "Sort by file name (Z to A)"]);
+const MOVE_FOLDER_TITLES = new Set(["Move folder to...", "Move folder to…"]);
 
 interface WorkspaceLike {
   getLeavesOfType?: (viewType: string) => Array<{ view?: unknown }>;
@@ -45,9 +47,14 @@ interface MenuConstructors {
 interface AdapterOptions {
   app: AppLike;
   getDirection: () => FolderSortDirection;
+  getHiddenFolderPaths?: () => ReadonlySet<string>;
   getPlacement?: () => FolderPlacement;
+  getPinnedFolderPaths?: () => ReadonlySet<string>;
+  isFolderPinned?: (path: string) => boolean;
   menuConstructors?: MenuConstructors;
+  onHideFolder?: (path: string) => unknown;
   onSelectDirection: (direction: FolderSortDirection) => unknown;
+  onTogglePinned?: (path: string) => unknown;
 }
 
 interface ViewPatch {
@@ -59,11 +66,14 @@ interface MenuPatch {
 }
 
 interface MenuState {
+  folderActionsInjected: boolean;
   injected: boolean;
   sawFileNameAsc: boolean;
+  sawMoveFolderTo: boolean;
 }
 
 export class FileExplorerAdapter {
+  private readonly folderMenuContexts = new WeakMap<MenuLike, SortableAbstractFile>();
   private readonly menuStates = new WeakMap<MenuLike, MenuState>();
   private menuPatch: MenuPatch | null = null;
   private patchingMenu = false;
@@ -109,6 +119,15 @@ export class FileExplorerAdapter {
     this.refresh();
   }
 
+  registerFolderContextMenu(menu: MenuLike, folder: SortableAbstractFile): void {
+    this.installMenuPatch();
+
+    if (getFilePath(folder)) {
+      this.folderMenuContexts.set(menu, folder);
+      this.injectFolderActionsIfReady(menu);
+    }
+  }
+
   private getFileExplorerViews(): FileExplorerViewLike[] {
     const leaves = this.options.app.workspace?.getLeavesOfType?.(FILE_EXPLORER_VIEW_TYPE) ?? [];
 
@@ -140,7 +159,11 @@ export class FileExplorerAdapter {
       return sortFolderSiblings(
         items as SortableTreeItem[],
         adapter.options.getDirection(),
-        adapter.options.getPlacement?.() ?? "keep"
+        adapter.options.getPlacement?.() ?? "keep",
+        {
+          hiddenFolderPaths: adapter.options.getHiddenFolderPaths?.(),
+          pinnedFolderPaths: adapter.options.getPinnedFolderPaths?.()
+        }
       );
     };
 
@@ -218,6 +241,12 @@ export class FileExplorerAdapter {
 
     const state = this.getMenuState(menu);
 
+    if (MOVE_FOLDER_TITLES.has(title)) {
+      state.sawMoveFolderTo = true;
+      this.injectFolderActionsIfReady(menu);
+      return;
+    }
+
     if (FILE_NAME_ASC_TITLES.has(title)) {
       state.sawFileNameAsc = true;
       return;
@@ -226,6 +255,42 @@ export class FileExplorerAdapter {
     if (FILE_NAME_DESC_TITLES.has(title) && state.sawFileNameAsc && !state.injected) {
       state.injected = true;
       this.injectFolderSortItems(menu);
+    }
+  }
+
+  private injectFolderActionsIfReady(menu: MenuLike): void {
+    const state = this.getMenuState(menu);
+    const folder = this.folderMenuContexts.get(menu);
+
+    if (!state.sawMoveFolderTo || state.folderActionsInjected || !folder) {
+      return;
+    }
+
+    state.folderActionsInjected = true;
+    this.injectFolderActionItems(menu, folder);
+  }
+
+  private injectFolderActionItems(menu: MenuLike, folder: SortableAbstractFile): void {
+    if (!this.menuPatch) {
+      return;
+    }
+
+    const path = getFilePath(folder);
+    const pinned = this.options.isFolderPinned?.(path) === true;
+    this.patchingMenu = true;
+
+    try {
+      this.menuPatch.originalAddItem.call(menu, (item) => {
+        item.setTitle?.(pinned ? "Unpin folder" : "Pin folder");
+        item.onClick?.(() => this.options.onTogglePinned?.(path));
+      });
+
+      this.menuPatch.originalAddItem.call(menu, (item) => {
+        item.setTitle?.("Hide folder");
+        item.onClick?.(() => this.options.onHideFolder?.(path));
+      });
+    } finally {
+      this.patchingMenu = false;
     }
   }
 
@@ -261,8 +326,10 @@ export class FileExplorerAdapter {
     }
 
     const state: MenuState = {
+      folderActionsInjected: false,
       injected: false,
-      sawFileNameAsc: false
+      sawFileNameAsc: false,
+      sawMoveFolderTo: false
     };
 
     this.menuStates.set(menu, state);
@@ -283,6 +350,10 @@ export class FileExplorerAdapter {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function getFilePath(file: SortableAbstractFile | null | undefined): string {
+  return typeof file?.path === "string" ? file.path : "";
 }
 
 function getMenuTitleText(title: string | DocumentFragment): string | null {

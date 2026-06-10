@@ -16,6 +16,7 @@ Folder Sort only reorders folders. Files use Obsidian's built-in file sorting be
 - Use natural, case-insensitive sorting, so `2 Folder` sorts before `10 Folder`.
 - Persist the folder sort direction per vault.
 - Configure Folder placement as `Existing order`, `Folders first`, or `Folders last`.
+- Pin folders above other folders, or hide folders from the File explorer.
 - Use the existing File explorer sort menu and command palette commands for sorting.
 - Load on desktop and mobile.
 
@@ -41,16 +42,5 @@ Use Settings > Community plugins > Folder Sort to choose the Folder placement mo
 - `Folders first`: move sorted folders above files.
 - `Folders last`: move sorted folders below files.
 
-## Installation
-
-To install, run these commands:
-
-```bash
-git clone https://github.com/t0masGutierrez/folder-sort.git
-cd folder-sort
-scripts/install-to-vault.sh "/path/to/your/vault"
-```
-
-This installs dependencies, builds the plugin, and copies into your vault.
-
-Then reload Obsidian and enable Folder Sort from Community plugins.
+Right-click a folder in the File explorer and use `Pin folder` or `Hide folder` below `Move folder to...`.
+Pinned folders stay above other folders. Hidden folders can be restored with the `Folder Sort: Show hidden folders` command.

@@ -5,5 +5,8 @@ main.js
 # Build diagnostics
 *.tsbuildinfo
 
+# Local verification tests
+tests/
+
 # Local Obsidian data
 .obsidian/

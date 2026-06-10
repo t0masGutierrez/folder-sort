@@ -1,4 +1,4 @@
-import { Menu, Notice, Plugin } from "obsidian";
+import { Menu, Notice, Plugin, TFolder } from "obsidian";
 import { FileExplorerAdapter } from "./file-explorer-adapter";
 import { FolderSortSettingTab } from "./settings-tab";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
@@ -22,11 +22,16 @@ export default class FolderSortPlugin extends Plugin {
     this.adapter = new FileExplorerAdapter({
       app: this.app,
       getDirection: () => this.settings.folderSortDirection,
+      getHiddenFolderPaths: () => new Set(this.settings.hiddenFolderPaths),
       getPlacement: () => this.settings.folderPlacement,
+      getPinnedFolderPaths: () => new Set(this.settings.pinnedFolderPaths),
+      isFolderPinned: (path) => this.settings.pinnedFolderPaths.includes(path),
       menuConstructors: {
         Menu
       },
-      onSelectDirection: (direction) => this.setFolderSortDirection(direction)
+      onHideFolder: (path) => this.hideFolder(path),
+      onSelectDirection: (direction) => this.setFolderSortDirection(direction),
+      onTogglePinned: (path) => this.togglePinnedFolder(path)
     });
 
     this.addCommands();
@@ -39,6 +44,14 @@ export default class FolderSortPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("layout-change", () => {
         void this.retryFileExplorerHook({ silent: true });
+      })
+    );
+
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (file instanceof TFolder && !file.isRoot()) {
+          this.adapter?.registerFolderContextMenu(menu, file);
+        }
       })
     );
 
@@ -69,6 +82,29 @@ export default class FolderSortPlugin extends Plugin {
 
   async toggleFolderSortDirection(): Promise<void> {
     await this.setFolderSortDirection(this.settings.folderSortDirection === "asc" ? "desc" : "asc");
+  }
+
+  async togglePinnedFolder(path: string): Promise<void> {
+    this.settings.pinnedFolderPaths = togglePath(this.settings.pinnedFolderPaths, path);
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
+  async hideFolder(path: string): Promise<void> {
+    this.settings.hiddenFolderPaths = addPath(this.settings.hiddenFolderPaths, path);
+    this.settings.pinnedFolderPaths = removePath(this.settings.pinnedFolderPaths, path);
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
+  async showHiddenFolders(): Promise<void> {
+    if (this.settings.hiddenFolderPaths.length === 0) {
+      return;
+    }
+
+    this.settings.hiddenFolderPaths = [];
+    await this.saveSettings();
+    this.adapter?.refresh();
   }
 
   async retryFileExplorerHook(options: { silent?: boolean } = {}): Promise<AttachResult> {
@@ -114,6 +150,14 @@ export default class FolderSortPlugin extends Plugin {
         void this.toggleFolderSortDirection();
       }
     });
+
+    this.addCommand({
+      id: "show-hidden-folders",
+      name: "Show hidden folders",
+      callback: () => {
+        void this.showHiddenFolders();
+      }
+    });
   }
 
   private async handleAttachResult(
@@ -128,4 +172,16 @@ export default class FolderSortPlugin extends Plugin {
     this.settings.compatibilityNoticeShown = true;
     await this.saveSettings();
   }
+}
+
+function addPath(paths: readonly string[], path: string): string[] {
+  return [...new Set([...paths, path])].sort();
+}
+
+function removePath(paths: readonly string[], path: string): string[] {
+  return paths.filter((existingPath) => existingPath !== path);
+}
+
+function togglePath(paths: readonly string[], path: string): string[] {
+  return paths.includes(path) ? removePath(paths, path) : addPath(paths, path);
 }

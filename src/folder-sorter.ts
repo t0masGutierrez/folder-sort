@@ -1,4 +1,5 @@
 import type {
+  FolderActionState,
   FolderPlacement,
   FolderSortDirection,
   SortableAbstractFile,
@@ -14,29 +15,31 @@ const collator = new Intl.Collator(undefined, {
 export function sortFolderSiblings<T extends SortableTreeItem>(
   items: readonly T[],
   direction: FolderSortDirection,
-  placement: FolderPlacement = "keep"
+  placement: FolderPlacement = "keep",
+  folderActions: FolderActionState = {}
 ): T[] {
-  const sortedFolders = items.filter(isFolderItem).sort((left, right) => {
-    const result = collator.compare(getFileName(left.file), getFileName(right.file));
-    if (result !== 0) {
-      return direction === "asc" ? result : -result;
+  const visibleItems = items.filter((item) => !isHiddenFolderItem(item, folderActions));
+  const sortedFolders = visibleItems.filter(isFolderItem).sort((left, right) => {
+    const pinnedResult = comparePinnedFolders(left, right, folderActions.pinnedFolderPaths);
+
+    if (pinnedResult !== 0) {
+      return pinnedResult;
     }
 
-    const pathResult = collator.compare(getFilePath(left.file), getFilePath(right.file));
-    return direction === "asc" ? pathResult : -pathResult;
+    return compareFolderNames(left, right, direction);
   });
 
   if (placement === "folders-first") {
-    return [...sortedFolders, ...items.filter((item) => !isFolderItem(item))];
+    return [...sortedFolders, ...visibleItems.filter((item) => !isFolderItem(item))];
   }
 
   if (placement === "folders-last") {
-    return [...items.filter((item) => !isFolderItem(item)), ...sortedFolders];
+    return [...visibleItems.filter((item) => !isFolderItem(item)), ...sortedFolders];
   }
 
   let folderIndex = 0;
 
-  return items.map((item) => {
+  return visibleItems.map((item) => {
     if (!isFolderItem(item)) {
       return item;
     }
@@ -49,6 +52,41 @@ export function sortFolderSiblings<T extends SortableTreeItem>(
 
 export function isFolderItem(item: SortableTreeItem): boolean {
   return isFolderFile(item.file);
+}
+
+function isHiddenFolderItem(item: SortableTreeItem, folderActions: FolderActionState): boolean {
+  return (
+    isFolderItem(item) && folderActions.hiddenFolderPaths?.has(getFilePath(item.file)) === true
+  );
+}
+
+function comparePinnedFolders(
+  left: SortableTreeItem,
+  right: SortableTreeItem,
+  pinnedFolderPaths: ReadonlySet<string> | undefined
+): number {
+  const leftPinned = pinnedFolderPaths?.has(getFilePath(left.file)) === true;
+  const rightPinned = pinnedFolderPaths?.has(getFilePath(right.file)) === true;
+
+  if (leftPinned === rightPinned) {
+    return 0;
+  }
+
+  return leftPinned ? -1 : 1;
+}
+
+function compareFolderNames(
+  left: SortableTreeItem,
+  right: SortableTreeItem,
+  direction: FolderSortDirection
+): number {
+  const result = collator.compare(getFileName(left.file), getFileName(right.file));
+  if (result !== 0) {
+    return direction === "asc" ? result : -result;
+  }
+
+  const pathResult = collator.compare(getFilePath(left.file), getFilePath(right.file));
+  return direction === "asc" ? pathResult : -pathResult;
 }
 
 function isFolderFile(file: SortableAbstractFile | null | undefined): boolean {

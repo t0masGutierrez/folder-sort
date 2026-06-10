@@ -6,6 +6,8 @@ export interface FolderSortSettings {
   compatibilityNoticeShown: boolean;
   folderPlacement: FolderPlacement;
   folderSortDirection: FolderSortDirection;
+  hiddenFolderPaths: string[];
+  pinnedFolderPaths: string[];
 }
 
 export interface SortableAbstractFile {
@@ -18,6 +20,11 @@ export interface SortableAbstractFile {
 export interface SortableTreeItem {
   file?: SortableAbstractFile | null;
   [key: string]: unknown;
+}
+
+export interface FolderActionState {
+  hiddenFolderPaths?: ReadonlySet<string>;
+  pinnedFolderPaths?: ReadonlySet<string>;
 }
 
 export interface AttachResult {

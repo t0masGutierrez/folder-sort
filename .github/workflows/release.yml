@@ -94,3 +94,14 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: main.js
+
+      - name: Attest manifest.json provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: manifest.json
+
+      - name: Attest styles.css provenance
+        if: ${{ hashFiles('styles.css') != '' }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: styles.css

@@ -498,18 +498,14 @@ function syncPinnedFolderIconsInDocument(
   setIcon: AdapterOptions["setIcon"],
   root: Document | null
 ): void {
-  if (!root || typeof root.querySelectorAll !== "function") {
+  if (!root) {
     return;
   }
 
   const pinnedFolderNames = new Set(Array.from(pinnedFolderPaths, getPathBasename));
   const matchedPinnedPaths = new Set<string>();
 
-  for (const titleEl of root.querySelectorAll(FOLDER_TITLE_SELECTOR)) {
-    if (!isHTMLElementLike(titleEl)) {
-      continue;
-    }
-
+  for (const titleEl of findAllInRoot(root, FOLDER_TITLE_SELECTOR)) {
     const path = getElementPath(titleEl);
 
     if (path) {
@@ -603,15 +599,15 @@ function getExistingPinnedIcon(titleEl: HTMLElement): HTMLElement | null {
 }
 
 function cleanupPinnedFolderIcons(root: Document | null): void {
-  if (!root || typeof root.querySelectorAll !== "function") {
+  if (!root) {
     return;
   }
 
-  for (const iconEl of root.querySelectorAll(`.${PINNED_FOLDER_ICON_CLASS}`)) {
+  for (const iconEl of findAllInRoot(root, `.${PINNED_FOLDER_ICON_CLASS}`)) {
     iconEl.remove();
   }
 
-  for (const titleEl of root.querySelectorAll(`.${PINNED_FOLDER_CLASS}`)) {
+  for (const titleEl of findAllInRoot(root, `.${PINNED_FOLDER_CLASS}`)) {
     titleEl.classList.remove(PINNED_FOLDER_CLASS);
   }
 }
@@ -656,7 +652,7 @@ function createPinnedIconElement(titleEl: HTMLElement): HTMLElement | null {
 }
 
 function getGlobalDocument(): Document | null {
-  return typeof document === "undefined" ? null : document;
+  return typeof activeDocument === "undefined" ? null : activeDocument;
 }
 
 function getDocumentForItem(item: SortableTreeItem): Document | null {
@@ -688,12 +684,12 @@ function getElementAttribute(element: HTMLElement, attribute: string): string {
 }
 
 function findFolderTitleElementByText(title: string, root: Document): HTMLElement | null {
-  if (!title || typeof root.querySelectorAll !== "function") {
+  if (!title) {
     return null;
   }
 
-  for (const element of root.querySelectorAll(FOLDER_TITLE_SELECTOR)) {
-    if (isHTMLElementLike(element) && getFolderTitleText(element) === title) {
+  for (const element of findAllInRoot(root, FOLDER_TITLE_SELECTOR)) {
+    if (getFolderTitleText(element) === title) {
       return element;
     }
   }
@@ -712,7 +708,8 @@ function getPathBasename(path: string): string {
 }
 
 function scheduleAfterRender(callback: () => void): void {
-  const requestFrame = globalThis.requestAnimationFrame;
+  const activeWindowLike = getActiveWindow();
+  const requestFrame = activeWindowLike?.requestAnimationFrame.bind(activeWindowLike);
 
   if (typeof requestFrame !== "function") {
     callback();
@@ -723,13 +720,21 @@ function scheduleAfterRender(callback: () => void): void {
 }
 
 function cssEscape(value: string): string {
-  const escape = globalThis.CSS?.escape;
+  const escape = getActiveWindow()?.CSS?.escape;
 
   if (escape) {
     return escape(value);
   }
 
   return value.replace(/["\\]/g, "\\$&");
+}
+
+function findAllInRoot(root: Document, selector: string): HTMLElement[] {
+  return root.body?.findAll?.(selector) ?? [];
+}
+
+function getActiveWindow(): (Window & { CSS?: { escape?: (value: string) => string } }) | null {
+  return typeof activeWindow === "undefined" ? null : activeWindow;
 }
 
 function getMenuTitleText(title: string | DocumentFragment): string | null {

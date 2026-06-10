@@ -10,6 +10,12 @@ import type {
 const FILE_EXPLORER_VIEW_TYPE = "file-explorer";
 const FILE_NAME_ASC_TITLES = new Set(["File name (A to Z)", "Sort by file name (A to Z)"]);
 const FILE_NAME_DESC_TITLES = new Set(["File name (Z to A)", "Sort by file name (Z to A)"]);
+const FOLDER_TITLE_SELECTOR = ".nav-folder-title, .tree-item-self";
+const FOLDER_TITLE_ELEMENT_KEYS = ["selfEl", "titleEl", "el", "containerEl"] as const;
+const FOLDER_TITLE_TEXT_SELECTOR = ".nav-folder-title-content, .tree-item-inner, .tree-item-title";
+const FOLDER_ACTION_SECTION = "action";
+const PINNED_FOLDER_CLASS = "folder-sort-is-pinned";
+const PINNED_FOLDER_ICON_CLASS = "folder-sort-pinned-icon";
 const MOVE_FOLDER_TITLES = new Set(["Move folder to...", "Move folder to…"]);
 
 interface WorkspaceLike {
@@ -27,8 +33,10 @@ interface FileExplorerViewLike {
 }
 
 interface MenuItemLike {
+  setIcon?: (icon: string | null) => unknown;
   onClick?: (callback: (event?: unknown) => unknown) => unknown;
   setChecked?: (checked: boolean | null) => unknown;
+  setSection?: (section: string) => unknown;
   setTitle?: (title: string | DocumentFragment) => unknown;
 }
 
@@ -54,6 +62,7 @@ interface AdapterOptions {
   menuConstructors?: MenuConstructors;
   onHideFolder?: (path: string) => unknown;
   onSelectDirection: (direction: FolderSortDirection) => unknown;
+  setIcon?: (element: HTMLElement, iconId: string) => void;
   onTogglePinned?: (path: string) => unknown;
 }
 
@@ -67,13 +76,16 @@ interface MenuPatch {
 
 interface MenuState {
   folderActionsInjected: boolean;
+  folderHideItem: MenuItemLike | null;
+  folderPath: string | null;
+  folderPinItem: MenuItemLike | null;
   injected: boolean;
+  moveFolderSection: string | null;
   sawFileNameAsc: boolean;
   sawMoveFolderTo: boolean;
 }
 
 export class FileExplorerAdapter {
-  private readonly folderMenuContexts = new WeakMap<MenuLike, SortableAbstractFile>();
   private readonly menuStates = new WeakMap<MenuLike, MenuState>();
   private menuPatch: MenuPatch | null = null;
   private patchingMenu = false;
@@ -93,6 +105,7 @@ export class FileExplorerAdapter {
       }
     }
 
+    this.schedulePinnedFolderIconSync();
     return {
       attachedViews,
       supported: attachedViews > 0
@@ -104,6 +117,7 @@ export class FileExplorerAdapter {
       view.getSortedFolderItems = patch.originalGetSortedFolderItems;
     }
 
+    cleanupPinnedFolderIcons(getGlobalDocument());
     this.patchedViews.clear();
     this.uninstallMenuPatch();
   }
@@ -112,6 +126,8 @@ export class FileExplorerAdapter {
     for (const view of this.patchedViews.keys()) {
       this.requestSort(view);
     }
+
+    this.schedulePinnedFolderIconSync();
   }
 
   setDirection(direction: FolderSortDirection): void {
@@ -122,9 +138,13 @@ export class FileExplorerAdapter {
   registerFolderContextMenu(menu: MenuLike, folder: SortableAbstractFile): void {
     this.installMenuPatch();
 
-    if (getFilePath(folder)) {
-      this.folderMenuContexts.set(menu, folder);
+    const path = getFilePath(folder);
+
+    if (path) {
+      const state = this.getMenuState(menu);
+      state.folderPath = path;
       this.injectFolderActionsIfReady(menu);
+      this.updateFolderActionItems(state);
     }
   }
 
@@ -156,7 +176,7 @@ export class FileExplorerAdapter {
         return items;
       }
 
-      return sortFolderSiblings(
+      const sortedItems = sortFolderSiblings(
         items as SortableTreeItem[],
         options.getDirection(),
         options.getPlacement?.() ?? "keep",
@@ -165,6 +185,14 @@ export class FileExplorerAdapter {
           pinnedFolderPaths: options.getPinnedFolderPaths?.()
         }
       );
+
+      syncPinnedFolderIcons(
+        sortedItems,
+        options.getPinnedFolderPaths?.() ?? new Set(),
+        options.setIcon
+      );
+
+      return sortedItems;
     };
 
     this.patchedViews.set(view, { originalGetSortedFolderItems });
@@ -185,7 +213,11 @@ export class FileExplorerAdapter {
 
     const originalAddItem = menuPrototype.addItem;
     const isPatchingMenu = (): boolean => this.patchingMenu;
-    const recordMenuTitle = (menu: MenuLike, title: string | null): void => this.recordMenuTitle(menu, title);
+    const recordMenuItem = (
+      menu: MenuLike,
+      title: string | null,
+      section: string | null
+    ): void => this.recordMenuItem(menu, title, section);
 
     // The native sort menu is identified by the neighboring file-name sort titles.
     menuPrototype.addItem = function patchedAddItem(
@@ -196,9 +228,11 @@ export class FileExplorerAdapter {
         return originalAddItem.call(this, callback);
       }
 
-      return originalAddItem.call(this, (item: MenuItemLike) => {
+      let capturedTitle: string | null = null;
+      let capturedSection: string | null = null;
+      const result = originalAddItem.call(this, (item: MenuItemLike) => {
         const originalSetTitle = item.setTitle;
-        let capturedTitle: string | null = null;
+        const originalSetSection = item.setSection;
 
         if (typeof originalSetTitle === "function") {
           item.setTitle = function patchedSetTitle(title: string | DocumentFragment): unknown {
@@ -208,15 +242,29 @@ export class FileExplorerAdapter {
           };
         }
 
-        const result = callback(item);
+        if (typeof originalSetSection === "function") {
+          item.setSection = function patchedSetSection(section: string): unknown {
+            capturedSection = section;
 
-        if (originalSetTitle) {
-          item.setTitle = originalSetTitle;
+            return originalSetSection.call(this, section);
+          };
         }
 
-        recordMenuTitle(this, capturedTitle);
-        return result;
+        try {
+          return callback(item);
+        } finally {
+          if (originalSetTitle) {
+            item.setTitle = originalSetTitle;
+          }
+
+          if (originalSetSection) {
+            item.setSection = originalSetSection;
+          }
+        }
       });
+
+      recordMenuItem(this, capturedTitle, capturedSection);
+      return result;
     };
 
     this.menuPatch = { originalAddItem };
@@ -233,7 +281,11 @@ export class FileExplorerAdapter {
     this.menuPatch = null;
   }
 
-  private recordMenuTitle(menu: MenuLike, title: string | null): void {
+  private recordMenuItem(
+    menu: MenuLike,
+    title: string | null,
+    section: string | null
+  ): void {
     if (!title) {
       return;
     }
@@ -242,7 +294,9 @@ export class FileExplorerAdapter {
 
     if (MOVE_FOLDER_TITLES.has(title)) {
       state.sawMoveFolderTo = true;
+      state.moveFolderSection = section ?? state.moveFolderSection;
       this.injectFolderActionsIfReady(menu);
+      this.updateFolderActionItems(state);
       return;
     }
 
@@ -259,35 +313,57 @@ export class FileExplorerAdapter {
 
   private injectFolderActionsIfReady(menu: MenuLike): void {
     const state = this.getMenuState(menu);
-    const folder = this.folderMenuContexts.get(menu);
 
-    if (!state.sawMoveFolderTo || state.folderActionsInjected || !folder) {
+    if (!state.sawMoveFolderTo || state.folderActionsInjected) {
       return;
     }
 
     state.folderActionsInjected = true;
-    this.injectFolderActionItems(menu, folder);
+    this.injectFolderActionItems(menu);
   }
 
-  private injectFolderActionItems(menu: MenuLike, folder: SortableAbstractFile): void {
+  private injectFolderActionItems(menu: MenuLike): void {
     if (!this.menuPatch) {
       return;
     }
 
-    const path = getFilePath(folder);
-    const pinned = this.options.isFolderPinned?.(path) === true;
+    const state = this.getMenuState(menu);
+    state.folderPinItem = null;
+    state.folderHideItem = null;
     this.patchingMenu = true;
 
     try {
-      this.menuPatch.originalAddItem.call(menu, (item) => {
-        item.setTitle?.(pinned ? "Unpin folder" : "Pin folder");
-        item.onClick?.(() => this.options.onTogglePinned?.(path));
+      const pinItem = this.addMenuItem(menu, (item) => {
+        setMenuItemSection(item, FOLDER_ACTION_SECTION);
+        item.onClick?.(() => {
+          const path = state.folderPath;
+
+          if (path) {
+            this.options.onTogglePinned?.(path);
+          }
+        });
       });
 
-      this.menuPatch.originalAddItem.call(menu, (item) => {
-        item.setTitle?.("Hide folder");
-        item.onClick?.(() => this.options.onHideFolder?.(path));
+      if (pinItem) {
+        state.folderPinItem = pinItem;
+      }
+
+      const hideItem = this.addMenuItem(menu, (item) => {
+        setMenuItemSection(item, FOLDER_ACTION_SECTION);
+        item.onClick?.(() => {
+          const path = state.folderPath;
+
+          if (path) {
+            this.options.onHideFolder?.(path);
+          }
+        });
       });
+
+      if (hideItem) {
+        state.folderHideItem = hideItem;
+      }
+
+      this.updateFolderActionItems(state);
     } finally {
       this.patchingMenu = false;
     }
@@ -301,13 +377,13 @@ export class FileExplorerAdapter {
     this.patchingMenu = true;
 
     try {
-      this.menuPatch.originalAddItem.call(menu, (item) => {
+      this.addMenuItem(menu, (item) => {
         item.setTitle?.("Folder name (A to Z)");
         item.setChecked?.(this.options.getDirection() === "asc");
         item.onClick?.(() => this.setDirection("asc"));
       });
 
-      this.menuPatch.originalAddItem.call(menu, (item) => {
+      this.addMenuItem(menu, (item) => {
         item.setTitle?.("Folder name (Z to A)");
         item.setChecked?.(this.options.getDirection() === "desc");
         item.onClick?.(() => this.setDirection("desc"));
@@ -315,6 +391,47 @@ export class FileExplorerAdapter {
     } finally {
       this.patchingMenu = false;
     }
+  }
+
+  private addMenuItem(menu: MenuLike, configure: (item: MenuItemLike) => void): MenuItemLike | null {
+    if (!this.menuPatch) {
+      return null;
+    }
+
+    let createdItem: MenuItemLike | null = null;
+
+    this.menuPatch.originalAddItem.call(menu, (item) => {
+      createdItem = item;
+      configure(item);
+    });
+
+    return createdItem;
+  }
+
+  private updateFolderActionItems(state: MenuState): void {
+    const path = state.folderPath;
+    const pinned = path ? this.options.isFolderPinned?.(path) === true : false;
+
+    state.folderPinItem?.setTitle?.(pinned ? "Unpin folder" : "Pin folder");
+    state.folderPinItem?.setIcon?.(pinned ? "pin-off" : "pin");
+    state.folderHideItem?.setTitle?.("Hide folder");
+    state.folderHideItem?.setIcon?.("eye-off");
+  }
+
+  private schedulePinnedFolderIconSync(): void {
+    syncPinnedFolderIconsInDocument(
+      this.options.getPinnedFolderPaths?.() ?? new Set(),
+      this.options.setIcon,
+      getGlobalDocument()
+    );
+
+    scheduleAfterRender(() => {
+      syncPinnedFolderIconsInDocument(
+        this.options.getPinnedFolderPaths?.() ?? new Set(),
+        this.options.setIcon,
+        getGlobalDocument()
+      );
+    });
   }
 
   private getMenuState(menu: MenuLike): MenuState {
@@ -326,7 +443,11 @@ export class FileExplorerAdapter {
 
     const state: MenuState = {
       folderActionsInjected: false,
+      folderHideItem: null,
+      folderPath: null,
+      folderPinItem: null,
       injected: false,
+      moveFolderSection: null,
       sawFileNameAsc: false,
       sawMoveFolderTo: false
     };
@@ -355,9 +476,280 @@ function getFilePath(file: SortableAbstractFile | null | undefined): string {
   return typeof file?.path === "string" ? file.path : "";
 }
 
+function syncPinnedFolderIcons(
+  items: readonly SortableTreeItem[],
+  pinnedFolderPaths: ReadonlySet<string>,
+  setIcon: AdapterOptions["setIcon"]
+): void {
+  for (const item of items) {
+    const path = getFilePath(item.file);
+    const titleEl = getFolderTitleElement(item, path);
+
+    if (!titleEl) {
+      continue;
+    }
+
+    syncPinnedFolderIcon(titleEl, pinnedFolderPaths.has(path), setIcon);
+  }
+}
+
+function syncPinnedFolderIconsInDocument(
+  pinnedFolderPaths: ReadonlySet<string>,
+  setIcon: AdapterOptions["setIcon"],
+  root: Document | null
+): void {
+  if (!root || typeof root.querySelectorAll !== "function") {
+    return;
+  }
+
+  const pinnedFolderNames = new Set(Array.from(pinnedFolderPaths, getPathBasename));
+  const matchedPinnedPaths = new Set<string>();
+
+  for (const titleEl of root.querySelectorAll(FOLDER_TITLE_SELECTOR)) {
+    if (!isHTMLElementLike(titleEl)) {
+      continue;
+    }
+
+    const path = getElementPath(titleEl);
+
+    if (path) {
+      const pinned = pinnedFolderPaths.has(path);
+      syncPinnedFolderIcon(titleEl, pinned, setIcon);
+
+      if (pinned) {
+        matchedPinnedPaths.add(path);
+      }
+
+      continue;
+    }
+
+    const title = getFolderTitleText(titleEl);
+
+    if (!title) {
+      continue;
+    }
+
+    syncPinnedFolderIcon(titleEl, pinnedFolderNames.has(title), setIcon);
+  }
+
+  for (const path of pinnedFolderPaths) {
+    if (matchedPinnedPaths.has(path)) {
+      continue;
+    }
+
+    const titleEl = findFolderTitleElementByPath(path, root);
+
+    if (titleEl) {
+      syncPinnedFolderIcon(titleEl, true, setIcon);
+    }
+  }
+}
+
+function syncPinnedFolderIcon(
+  titleEl: HTMLElement,
+  pinned: boolean,
+  setIcon: AdapterOptions["setIcon"]
+): void {
+  titleEl.classList.toggle(PINNED_FOLDER_CLASS, pinned);
+
+  const existingIcon = getExistingPinnedIcon(titleEl);
+
+  if (!pinned) {
+    existingIcon?.remove();
+    return;
+  }
+
+  const iconEl = existingIcon ?? createPinnedIconElement(titleEl);
+
+  if (!iconEl) {
+    return;
+  }
+
+  if (!existingIcon) {
+    titleEl.appendChild(iconEl);
+  }
+
+  setIcon?.(iconEl, "pin");
+}
+
+function getFolderTitleElement(item: SortableTreeItem, path: string): HTMLElement | null {
+  for (const key of FOLDER_TITLE_ELEMENT_KEYS) {
+    const element = findFolderTitleElement(item[key]);
+
+    if (element) {
+      return element;
+    }
+  }
+
+  return findFolderTitleElementByPath(path, getDocumentForItem(item));
+}
+
+function findFolderTitleElement(value: unknown): HTMLElement | null {
+  if (!isHTMLElementLike(value)) {
+    return null;
+  }
+
+  if (value.classList.contains("nav-folder-title") || value.classList.contains("tree-item-self")) {
+    return value;
+  }
+
+  return value.querySelector<HTMLElement>(FOLDER_TITLE_SELECTOR);
+}
+
+function getExistingPinnedIcon(titleEl: HTMLElement): HTMLElement | null {
+  return Array.from(titleEl.children).find((child): child is HTMLElement => {
+    return isHTMLElementLike(child) && child.classList.contains(PINNED_FOLDER_ICON_CLASS);
+  }) ?? null;
+}
+
+function cleanupPinnedFolderIcons(root: Document | null): void {
+  if (!root || typeof root.querySelectorAll !== "function") {
+    return;
+  }
+
+  for (const iconEl of root.querySelectorAll(`.${PINNED_FOLDER_ICON_CLASS}`)) {
+    iconEl.remove();
+  }
+
+  for (const titleEl of root.querySelectorAll(`.${PINNED_FOLDER_CLASS}`)) {
+    titleEl.classList.remove(PINNED_FOLDER_CLASS);
+  }
+}
+
+function findFolderTitleElementByPath(path: string, root: Document | null): HTMLElement | null {
+  if (!root || !path) {
+    return null;
+  }
+
+  const escapedPath = cssEscape(path);
+  const dataPathSelector = `[data-path="${escapedPath}"]`;
+  const selector = [
+    `.nav-folder-title${dataPathSelector}`,
+    `.tree-item-self${dataPathSelector}`,
+    `${dataPathSelector} > ${FOLDER_TITLE_SELECTOR}`,
+    `${dataPathSelector} ${FOLDER_TITLE_SELECTOR}`
+  ].join(", ");
+
+  try {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (isHTMLElementLike(element)) {
+      return element;
+    }
+  } catch {
+    return findFolderTitleElementByText(getPathBasename(path), root);
+  }
+
+  return findFolderTitleElementByText(getPathBasename(path), root);
+}
+
+function createPinnedIconElement(titleEl: HTMLElement): HTMLElement | null {
+  const documentLike = titleEl.ownerDocument ?? getGlobalDocument();
+
+  if (!documentLike) {
+    return null;
+  }
+
+  const iconEl = documentLike.createElement("span");
+  iconEl.classList.add(PINNED_FOLDER_ICON_CLASS);
+  iconEl.setAttribute("aria-hidden", "true");
+  return iconEl;
+}
+
+function getGlobalDocument(): Document | null {
+  return typeof document === "undefined" ? null : document;
+}
+
+function getDocumentForItem(item: SortableTreeItem): Document | null {
+  for (const key of FOLDER_TITLE_ELEMENT_KEYS) {
+    const value = item[key];
+
+    if (isHTMLElementLike(value)) {
+      return value.ownerDocument ?? getGlobalDocument();
+    }
+  }
+
+  return getGlobalDocument();
+}
+
+function getElementPath(element: HTMLElement): string {
+  const ownPath = getElementAttribute(element, "data-path");
+
+  if (ownPath) {
+    return ownPath;
+  }
+
+  const closestWithPath = element.closest?.("[data-path]");
+  return isHTMLElementLike(closestWithPath) ? getElementAttribute(closestWithPath, "data-path") : "";
+}
+
+function getElementAttribute(element: HTMLElement, attribute: string): string {
+  const value = element.getAttribute?.(attribute);
+  return typeof value === "string" ? value : "";
+}
+
+function findFolderTitleElementByText(title: string, root: Document): HTMLElement | null {
+  if (!title || typeof root.querySelectorAll !== "function") {
+    return null;
+  }
+
+  for (const element of root.querySelectorAll(FOLDER_TITLE_SELECTOR)) {
+    if (isHTMLElementLike(element) && getFolderTitleText(element) === title) {
+      return element;
+    }
+  }
+
+  return null;
+}
+
+function getFolderTitleText(element: HTMLElement): string {
+  const titleContent = element.querySelector?.(FOLDER_TITLE_TEXT_SELECTOR);
+  const text = titleContent?.textContent ?? element.textContent ?? "";
+  return text.trim();
+}
+
+function getPathBasename(path: string): string {
+  return path.split("/").filter(Boolean).at(-1) ?? path;
+}
+
+function scheduleAfterRender(callback: () => void): void {
+  const requestFrame = globalThis.requestAnimationFrame;
+
+  if (typeof requestFrame !== "function") {
+    callback();
+    return;
+  }
+
+  requestFrame(() => requestFrame(callback));
+}
+
+function cssEscape(value: string): string {
+  const escape = globalThis.CSS?.escape;
+
+  if (escape) {
+    return escape(value);
+  }
+
+  return value.replace(/["\\]/g, "\\$&");
+}
+
 function getMenuTitleText(title: string | DocumentFragment): string | null {
   const text = typeof title === "string" ? title : title.textContent;
   const normalizedText = text?.trim();
 
   return normalizedText ? normalizedText : null;
+}
+
+function setMenuItemSection(item: MenuItemLike, section: string | null): void {
+  if (section) {
+    item.setSection?.(section);
+  }
+}
+
+function isHTMLElementLike(value: unknown): value is HTMLElement {
+  return (
+    isRecord(value) &&
+    typeof value.appendChild === "function" &&
+    typeof value.classList === "object" &&
+    typeof value.querySelector === "function"
+  );
 }

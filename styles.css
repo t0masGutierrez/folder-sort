@@ -1,0 +1,26 @@
+.nav-folder-title.folder-sort-is-pinned,
+.tree-item-self.folder-sort-is-pinned {
+  align-items: center;
+  display: flex;
+}
+
+.nav-folder-title .folder-sort-pinned-icon,
+.tree-item-self .folder-sort-pinned-icon {
+  align-items: center;
+  color: var(--color-purple);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--icon-size);
+  justify-content: center;
+  margin-inline-start: auto;
+  min-width: var(--icon-size);
+  opacity: 0.9;
+  pointer-events: none;
+  width: var(--icon-size);
+}
+
+.folder-sort-pinned-icon svg {
+  height: var(--icon-xs);
+  stroke-width: var(--icon-stroke);
+  width: var(--icon-xs);
+}

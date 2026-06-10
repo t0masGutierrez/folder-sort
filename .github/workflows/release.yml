@@ -68,11 +68,11 @@ jobs:
           VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         run: |
           assets=(main.js manifest.json)
+          if [[ -f styles.css ]]; then
+            assets+=(styles.css)
+          fi
           if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release delete-asset "$VERSION" versions.json \
-              --repo "$GITHUB_REPOSITORY" \
-              --yes || true
-            gh release delete-asset "$VERSION" styles.css \
               --repo "$GITHUB_REPOSITORY" \
               --yes || true
             gh release upload "$VERSION" "${assets[@]}" \

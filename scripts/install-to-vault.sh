@@ -38,6 +38,10 @@ done
 
 mkdir -p "$PLUGIN_DIR"
 cp "$PROJECT_ROOT/main.js" "$PROJECT_ROOT/manifest.json" "$PLUGIN_DIR/"
-rm -f "$PLUGIN_DIR/styles.css"
+if [[ -f "$PROJECT_ROOT/styles.css" ]]; then
+  cp "$PROJECT_ROOT/styles.css" "$PLUGIN_DIR/"
+else
+  rm -f "$PLUGIN_DIR/styles.css"
+fi
 
 printf 'Installed Folder Sort at %s\n' "$PLUGIN_DIR"

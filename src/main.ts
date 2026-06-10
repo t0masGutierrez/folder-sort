@@ -1,4 +1,4 @@
-import { Menu, Notice, Plugin, TFolder } from "obsidian";
+import { Menu, Notice, Plugin, setIcon, TFolder } from "obsidian";
 import { FileExplorerAdapter } from "./file-explorer-adapter";
 import { FolderSortSettingTab } from "./settings-tab";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
@@ -31,6 +31,7 @@ export default class FolderSortPlugin extends Plugin {
       },
       onHideFolder: (path) => this.hideFolder(path),
       onSelectDirection: (direction) => this.setFolderSortDirection(direction),
+      setIcon,
       onTogglePinned: (path) => this.togglePinnedFolder(path)
     });
 

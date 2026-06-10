@@ -16,7 +16,7 @@ Folder Sort only reorders folders. Files use Obsidian's built-in file sorting be
 - Use natural, case-insensitive sorting, so `2 Folder` sorts before `10 Folder`.
 - Persist the folder sort direction per vault.
 - Configure Folder placement as `Existing order`, `Folders first`, or `Folders last`.
-- Pin folders above other folders, or hide folders from the File explorer.
+- Pin folders above other folders with a purple pin marker, or hide folders from the File explorer.
 - Use the existing File explorer sort menu and command palette commands for sorting.
 - Load on desktop and mobile.
 
@@ -43,4 +43,4 @@ Use Settings > Community plugins > Folder Sort to choose the Folder placement mo
 - `Folders last`: move sorted folders below files.
 
 Right-click a folder in the File explorer and use `Pin folder` or `Hide folder` below `Move folder to...`.
-Pinned folders stay above other folders. Hidden folders can be restored with the `Folder Sort: Show hidden folders` command.
+Pinned folders stay above other folders and show a purple pin marker on the right. Hidden folders can be restored with the `Folder Sort: Show hidden folders` command.

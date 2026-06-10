@@ -1,6 +1,6 @@
 {
   "name": "folder-sort",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Sort folders A-Z or Z-A in Obsidian's File explorer.",
   "main": "main.js",
   "scripts": {

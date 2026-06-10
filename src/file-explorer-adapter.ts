@@ -146,7 +146,7 @@ export class FileExplorerAdapter {
     }
 
     const originalGetSortedFolderItems = view.getSortedFolderItems;
-    const adapter = this;
+    const { options } = this;
 
     // Obsidian's File explorer has no public folder-only sort hook, so keep this patch narrow.
     view.getSortedFolderItems = function patchedGetSortedFolderItems(folder: unknown): unknown {
@@ -158,11 +158,11 @@ export class FileExplorerAdapter {
 
       return sortFolderSiblings(
         items as SortableTreeItem[],
-        adapter.options.getDirection(),
-        adapter.options.getPlacement?.() ?? "keep",
+        options.getDirection(),
+        options.getPlacement?.() ?? "keep",
         {
-          hiddenFolderPaths: adapter.options.getHiddenFolderPaths?.(),
-          pinnedFolderPaths: adapter.options.getPinnedFolderPaths?.()
+          hiddenFolderPaths: options.getHiddenFolderPaths?.(),
+          pinnedFolderPaths: options.getPinnedFolderPaths?.()
         }
       );
     };
@@ -184,20 +184,19 @@ export class FileExplorerAdapter {
     }
 
     const originalAddItem = menuPrototype.addItem;
-    const adapter = this;
+    const isPatchingMenu = (): boolean => this.patchingMenu;
+    const recordMenuTitle = (menu: MenuLike, title: string | null): void => this.recordMenuTitle(menu, title);
 
     // The native sort menu is identified by the neighboring file-name sort titles.
     menuPrototype.addItem = function patchedAddItem(
       this: MenuLike,
       callback: (item: MenuItemLike) => unknown
     ): unknown {
-      if (adapter.patchingMenu) {
+      if (isPatchingMenu()) {
         return originalAddItem.call(this, callback);
       }
 
-      const menu = this;
-
-      return originalAddItem.call(menu, (item: MenuItemLike) => {
+      return originalAddItem.call(this, (item: MenuItemLike) => {
         const originalSetTitle = item.setTitle;
         let capturedTitle: string | null = null;
 
@@ -215,7 +214,7 @@ export class FileExplorerAdapter {
           item.setTitle = originalSetTitle;
         }
 
-        adapter.recordMenuTitle(menu, capturedTitle);
+        recordMenuTitle(this, capturedTitle);
         return result;
       });
     };

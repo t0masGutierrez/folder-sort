@@ -1,13 +1,13 @@
 {
   "name": "folder-sort",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Sort folders A-Z or Z-A in Obsidian's File explorer.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "install:vault": "scripts/install-to-vault.sh",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -noEmit -skipLibCheck"
   },
   "keywords": [

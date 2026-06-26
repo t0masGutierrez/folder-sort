@@ -12,7 +12,6 @@ const FILE_NAME_ASC_TITLES = new Set(["File name (A to Z)", "Sort by file name (
 const FILE_NAME_DESC_TITLES = new Set(["File name (Z to A)", "Sort by file name (Z to A)"]);
 const FOLDER_TITLE_SELECTOR = ".nav-folder-title, .tree-item-self";
 const FOLDER_TITLE_ELEMENT_KEYS = ["selfEl", "titleEl", "el", "containerEl"] as const;
-const FOLDER_TITLE_TEXT_SELECTOR = ".nav-folder-title-content, .tree-item-inner, .tree-item-title";
 const FOLDER_ACTION_SECTION = "action";
 const PINNED_FOLDER_CLASS = "folder-sort-is-pinned";
 const PINNED_FOLDER_ICON_CLASS = "folder-sort-pinned-icon";
@@ -502,30 +501,23 @@ function syncPinnedFolderIconsInDocument(
     return;
   }
 
-  const pinnedFolderNames = new Set(Array.from(pinnedFolderPaths, getPathBasename));
+  cleanupPinnedFolderIcons(root);
   const matchedPinnedPaths = new Set<string>();
 
   for (const titleEl of findAllInRoot(root, FOLDER_TITLE_SELECTOR)) {
     const path = getElementPath(titleEl);
 
-    if (path) {
-      const pinned = pinnedFolderPaths.has(path);
-      syncPinnedFolderIcon(titleEl, pinned, setIcon);
-
-      if (pinned) {
-        matchedPinnedPaths.add(path);
-      }
-
+    if (!path) {
+      syncPinnedFolderIcon(titleEl, false, setIcon);
       continue;
     }
 
-    const title = getFolderTitleText(titleEl);
+    const pinned = pinnedFolderPaths.has(path);
+    syncPinnedFolderIcon(titleEl, pinned, setIcon);
 
-    if (!title) {
-      continue;
+    if (pinned) {
+      matchedPinnedPaths.add(path);
     }
-
-    syncPinnedFolderIcon(titleEl, pinnedFolderNames.has(title), setIcon);
   }
 
   for (const path of pinnedFolderPaths) {
@@ -632,10 +624,10 @@ function findFolderTitleElementByPath(path: string, root: Document | null): HTML
       return element;
     }
   } catch {
-    return findFolderTitleElementByText(getPathBasename(path), root);
+    return null;
   }
 
-  return findFolderTitleElementByText(getPathBasename(path), root);
+  return null;
 }
 
 function createPinnedIconElement(titleEl: HTMLElement): HTMLElement | null {
@@ -681,30 +673,6 @@ function getElementPath(element: HTMLElement): string {
 function getElementAttribute(element: HTMLElement, attribute: string): string {
   const value = element.getAttribute?.(attribute);
   return typeof value === "string" ? value : "";
-}
-
-function findFolderTitleElementByText(title: string, root: Document): HTMLElement | null {
-  if (!title) {
-    return null;
-  }
-
-  for (const element of findAllInRoot(root, FOLDER_TITLE_SELECTOR)) {
-    if (getFolderTitleText(element) === title) {
-      return element;
-    }
-  }
-
-  return null;
-}
-
-function getFolderTitleText(element: HTMLElement): string {
-  const titleContent = element.querySelector?.(FOLDER_TITLE_TEXT_SELECTOR);
-  const text = titleContent?.textContent ?? element.textContent ?? "";
-  return text.trim();
-}
-
-function getPathBasename(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) ?? path;
 }
 
 function scheduleAfterRender(callback: () => void): void {

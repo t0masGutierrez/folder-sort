@@ -38,6 +38,13 @@ export function isFolderSortDirection(value: unknown): value is FolderSortDirect
   return value === "asc" || value === "desc";
 }
 
+export function keepExistingFolderPaths(
+  paths: readonly string[],
+  isExistingFolderPath: (path: string) => boolean
+): string[] {
+  return normalizePathList(paths).filter(isExistingFolderPath);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }

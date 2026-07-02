@@ -89,6 +89,7 @@ export class FileExplorerAdapter {
   private menuPatch: MenuPatch | null = null;
   private patchingMenu = false;
   private readonly patchedViews = new Map<FileExplorerViewLike, ViewPatch>();
+  private pinnedFolderIconSyncQueued = false;
 
   constructor(private readonly options: AdapterOptions) {}
 
@@ -166,6 +167,7 @@ export class FileExplorerAdapter {
 
     const originalGetSortedFolderItems = view.getSortedFolderItems;
     const { options } = this;
+    const queuePinnedFolderIconSync = (): void => this.queuePinnedFolderIconSync();
 
     // Obsidian's File explorer has no public folder-only sort hook, so keep this patch narrow.
     view.getSortedFolderItems = function patchedGetSortedFolderItems(folder: unknown): unknown {
@@ -190,6 +192,7 @@ export class FileExplorerAdapter {
         options.getPinnedFolderPaths?.() ?? new Set(),
         options.setIcon
       );
+      queuePinnedFolderIconSync();
 
       return sortedItems;
     };
@@ -338,8 +341,10 @@ export class FileExplorerAdapter {
           const path = state.folderPath;
 
           if (path) {
-            this.options.onTogglePinned?.(path);
+            return this.options.onTogglePinned?.(path);
           }
+
+          return undefined;
         });
       });
 
@@ -353,8 +358,10 @@ export class FileExplorerAdapter {
           const path = state.folderPath;
 
           if (path) {
-            this.options.onHideFolder?.(path);
+            return this.options.onHideFolder?.(path);
           }
+
+          return undefined;
         });
       });
 
@@ -418,19 +425,28 @@ export class FileExplorerAdapter {
   }
 
   private schedulePinnedFolderIconSync(): void {
+    this.syncPinnedFolderIconsInDocument();
+    this.queuePinnedFolderIconSync();
+  }
+
+  private queuePinnedFolderIconSync(): void {
+    if (this.pinnedFolderIconSyncQueued) {
+      return;
+    }
+
+    this.pinnedFolderIconSyncQueued = true;
+    scheduleAfterRender(() => {
+      this.pinnedFolderIconSyncQueued = false;
+      this.syncPinnedFolderIconsInDocument();
+    });
+  }
+
+  private syncPinnedFolderIconsInDocument(): void {
     syncPinnedFolderIconsInDocument(
       this.options.getPinnedFolderPaths?.() ?? new Set(),
       this.options.setIcon,
       getGlobalDocument()
     );
-
-    scheduleAfterRender(() => {
-      syncPinnedFolderIconsInDocument(
-        this.options.getPinnedFolderPaths?.() ?? new Set(),
-        this.options.setIcon,
-        getGlobalDocument()
-      );
-    });
   }
 
   private getMenuState(menu: MenuLike): MenuState {

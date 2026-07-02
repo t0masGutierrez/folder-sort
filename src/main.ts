@@ -56,6 +56,14 @@ export default class FolderSortPlugin extends Plugin {
       })
     );
 
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (file instanceof TFolder && !file.isRoot()) {
+          void this.removeFolderActionPath(file.path);
+        }
+      })
+    );
+
     this.register(() => this.adapter?.detach());
   }
 
@@ -126,6 +134,23 @@ export default class FolderSortPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  private async removeFolderActionPath(path: string): Promise<void> {
+    const hiddenFolderPaths = removePathAndDescendants(this.settings.hiddenFolderPaths, path);
+    const pinnedFolderPaths = removePathAndDescendants(this.settings.pinnedFolderPaths, path);
+
+    if (
+      arraysEqual(hiddenFolderPaths, this.settings.hiddenFolderPaths) &&
+      arraysEqual(pinnedFolderPaths, this.settings.pinnedFolderPaths)
+    ) {
+      return;
+    }
+
+    this.settings.hiddenFolderPaths = hiddenFolderPaths;
+    this.settings.pinnedFolderPaths = pinnedFolderPaths;
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
   private addCommands(): void {
     // Obsidian prefixes these with the plugin name in the command palette.
     this.addCommand({
@@ -183,6 +208,17 @@ function removePath(paths: readonly string[], path: string): string[] {
   return paths.filter((existingPath) => existingPath !== path);
 }
 
+function removePathAndDescendants(paths: readonly string[], path: string): string[] {
+  const childPathPrefix = `${path}/`;
+  return paths.filter(
+    (existingPath) => existingPath !== path && !existingPath.startsWith(childPathPrefix)
+  );
+}
+
 function togglePath(paths: readonly string[], path: string): string[] {
   return paths.includes(path) ? removePath(paths, path) : addPath(paths, path);
+}
+
+function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

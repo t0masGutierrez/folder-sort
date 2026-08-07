@@ -7,6 +7,7 @@ export interface FolderSortSettings {
   folderPlacement: FolderPlacement;
   folderSortDirection: FolderSortDirection;
   hiddenFolderPaths: string[];
+  ignoredFolderPatterns: string[];
   pinnedFolderPaths: string[];
 }
 
@@ -24,6 +25,7 @@ export interface SortableTreeItem {
 
 export interface FolderActionState {
   hiddenFolderPaths?: ReadonlySet<string>;
+  ignoredFolderPatterns?: readonly string[];
   pinnedFolderPaths?: ReadonlySet<string>;
 }
 

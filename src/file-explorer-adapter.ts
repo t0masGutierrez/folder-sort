@@ -55,6 +55,7 @@ interface AdapterOptions {
   app: AppLike;
   getDirection: () => FolderSortDirection;
   getHiddenFolderPaths?: () => ReadonlySet<string>;
+  getIgnoredFolderPatterns?: () => readonly string[];
   getPlacement?: () => FolderPlacement;
   getPinnedFolderPaths?: () => ReadonlySet<string>;
   isFolderPinned?: (path: string) => boolean;
@@ -183,6 +184,7 @@ export class FileExplorerAdapter {
         options.getPlacement?.() ?? "keep",
         {
           hiddenFolderPaths: options.getHiddenFolderPaths?.(),
+          ignoredFolderPatterns: options.getIgnoredFolderPatterns?.(),
           pinnedFolderPaths: options.getPinnedFolderPaths?.()
         }
       );

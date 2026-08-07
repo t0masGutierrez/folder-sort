@@ -54,10 +54,73 @@ export function isFolderItem(item: SortableTreeItem): boolean {
   return isFolderFile(item.file);
 }
 
+export function isIgnoredFolderPath(
+  path: string,
+  patterns: readonly string[] | undefined
+): boolean {
+  if (!path || !patterns) {
+    return false;
+  }
+
+  return patterns.some((pattern) => matchesFolderPattern(path, pattern));
+}
+
 function isHiddenFolderItem(item: SortableTreeItem, folderActions: FolderActionState): boolean {
   return (
-    isFolderItem(item) && folderActions.hiddenFolderPaths?.has(getFilePath(item.file)) === true
+    isFolderItem(item) &&
+    (folderActions.hiddenFolderPaths?.has(getFilePath(item.file)) === true ||
+      isIgnoredFolderPath(getFilePath(item.file), folderActions.ignoredFolderPatterns))
   );
+}
+
+function matchesFolderPattern(path: string, rawPattern: string): boolean {
+  const pattern = rawPattern.trim();
+
+  if (!pattern) {
+    return false;
+  }
+
+  const prefixPattern = pattern.endsWith("/**");
+  const patternToMatch = prefixPattern ? pattern.slice(0, -3) : pattern;
+
+  try {
+    const suffix = prefixPattern ? "(?:/.*)?" : "";
+    return new RegExp(`^${wildcardPatternToRegex(patternToMatch)}${suffix}$`).test(path);
+  } catch {
+    return false;
+  }
+}
+
+function wildcardPatternToRegex(pattern: string): string {
+  let result = "";
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+
+    if (character === "*" && pattern[index + 1] === "*") {
+      if (pattern[index + 2] === "/") {
+        result += "(?:.*/)?";
+        index += 2;
+      } else {
+        result += ".*";
+        index += 1;
+      }
+      continue;
+    }
+
+    if (character === "*") {
+      result += "[^/]*";
+      continue;
+    }
+
+    result += escapeRegexCharacter(character);
+  }
+
+  return result;
+}
+
+function escapeRegexCharacter(character: string): string {
+  return /[\\^$+?.()|[\]{}]/.test(character) ? `\\${character}` : character;
 }
 
 function comparePinnedFolders(

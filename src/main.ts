@@ -1,7 +1,11 @@
 import { Menu, Notice, Plugin, setIcon, TFolder } from "obsidian";
 import { FileExplorerAdapter } from "./file-explorer-adapter";
 import { FolderSortSettingTab } from "./settings-tab";
-import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  normalizeIgnoredFolderPatterns,
+  normalizeSettings
+} from "./settings";
 import type {
   AttachResult,
   FolderPlacement,
@@ -23,6 +27,7 @@ export default class FolderSortPlugin extends Plugin {
       app: this.app,
       getDirection: () => this.settings.folderSortDirection,
       getHiddenFolderPaths: () => new Set(this.settings.hiddenFolderPaths),
+      getIgnoredFolderPatterns: () => this.settings.ignoredFolderPatterns,
       getPlacement: () => this.settings.folderPlacement,
       getPinnedFolderPaths: () => new Set(this.settings.pinnedFolderPaths),
       isFolderPinned: (path) => this.settings.pinnedFolderPaths.includes(path),
@@ -60,6 +65,14 @@ export default class FolderSortPlugin extends Plugin {
       this.app.vault.on("delete", (file) => {
         if (file instanceof TFolder && !file.isRoot()) {
           void this.removeFolderActionPath(file.path);
+        }
+      })
+    );
+
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (file instanceof TFolder && !file.isRoot()) {
+          void this.updateFolderActionPaths(oldPath, file.path);
         }
       })
     );
@@ -116,6 +129,18 @@ export default class FolderSortPlugin extends Plugin {
     this.adapter?.refresh();
   }
 
+  async setIgnoredFolderPatterns(patterns: readonly string[]): Promise<void> {
+    const normalizedPatterns = normalizeIgnoredFolderPatterns(patterns);
+
+    if (arraysEqual(normalizedPatterns, this.settings.ignoredFolderPatterns)) {
+      return;
+    }
+
+    this.settings.ignoredFolderPatterns = normalizedPatterns;
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
   async retryFileExplorerHook(options: { silent?: boolean } = {}): Promise<AttachResult> {
     const result = this.adapter?.attach() ?? {
       attachedViews: 0,
@@ -137,6 +162,35 @@ export default class FolderSortPlugin extends Plugin {
   private async removeFolderActionPath(path: string): Promise<void> {
     const hiddenFolderPaths = removePathAndDescendants(this.settings.hiddenFolderPaths, path);
     const pinnedFolderPaths = removePathAndDescendants(this.settings.pinnedFolderPaths, path);
+
+    if (
+      arraysEqual(hiddenFolderPaths, this.settings.hiddenFolderPaths) &&
+      arraysEqual(pinnedFolderPaths, this.settings.pinnedFolderPaths)
+    ) {
+      return;
+    }
+
+    this.settings.hiddenFolderPaths = hiddenFolderPaths;
+    this.settings.pinnedFolderPaths = pinnedFolderPaths;
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
+  private async updateFolderActionPaths(oldPath: string, newPath: string): Promise<void> {
+    if (!oldPath || !newPath || oldPath === newPath) {
+      return;
+    }
+
+    const hiddenFolderPaths = replacePathPrefix(
+      this.settings.hiddenFolderPaths,
+      oldPath,
+      newPath
+    );
+    const pinnedFolderPaths = replacePathPrefix(
+      this.settings.pinnedFolderPaths,
+      oldPath,
+      newPath
+    );
 
     if (
       arraysEqual(hiddenFolderPaths, this.settings.hiddenFolderPaths) &&
@@ -213,6 +267,30 @@ function removePathAndDescendants(paths: readonly string[], path: string): strin
   return paths.filter(
     (existingPath) => existingPath !== path && !existingPath.startsWith(childPathPrefix)
   );
+}
+
+function replacePathPrefix(
+  paths: readonly string[],
+  oldPath: string,
+  newPath: string
+): string[] {
+  const oldPathPrefix = `${oldPath}/`;
+
+  return [
+    ...new Set(
+      paths.map((path) => {
+        if (path === oldPath) {
+          return newPath;
+        }
+
+        if (path.startsWith(oldPathPrefix)) {
+          return `${newPath}/${path.slice(oldPathPrefix.length)}`;
+        }
+
+        return path;
+      })
+    )
+  ].sort();
 }
 
 function togglePath(paths: readonly string[], path: string): string[] {

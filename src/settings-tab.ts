@@ -35,5 +35,19 @@ export class FolderSortSettingTab extends PluginSettingTab {
           });
       });
 
+    new Setting(containerEl)
+      .setName("Ignore folder patterns")
+      .setDesc(
+        "Enter one vault-relative folder pattern per line. Examples: **/Templates and Archive/**."
+      )
+      .addTextArea((textArea) => {
+        textArea
+          .setValue(this.plugin.settings.ignoredFolderPatterns.join("\n"))
+          .setPlaceholder("**/Templates\nArchive/**");
+        textArea.inputEl.rows = 5;
+        textArea.inputEl.addEventListener("change", () => {
+          void this.plugin.setIgnoredFolderPatterns(textArea.getValue().split(/\r?\n/));
+        });
+      });
   }
 }

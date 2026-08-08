@@ -1,6 +1,6 @@
 {
   "name": "folder-sort",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Sort folders A-Z or Z-A in Obsidian's File explorer.",
   "main": "main.js",
   "scripts": {
@@ -21,7 +21,7 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "esbuild": "^0.28.1",
-    "obsidian": "^1.12.3",
+    "obsidian": "^1.13.1",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"

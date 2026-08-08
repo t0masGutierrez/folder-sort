@@ -569,10 +569,6 @@ function syncPinnedFolderIcon(
     return;
   }
 
-  if (!existingIcon) {
-    titleEl.appendChild(iconEl);
-  }
-
   setIcon?.(iconEl, "pin");
 }
 
@@ -647,16 +643,12 @@ function findFolderTitleElementByPath(path: string, root: Document | null): HTML
 }
 
 function createPinnedIconElement(titleEl: HTMLElement): HTMLElement | null {
-  const documentLike = titleEl.ownerDocument ?? getGlobalDocument();
-
-  if (!documentLike) {
-    return null;
-  }
-
-  const iconEl = documentLike.createElement("span");
-  iconEl.classList.add(PINNED_FOLDER_ICON_CLASS);
-  iconEl.setAttribute("aria-hidden", "true");
-  return iconEl;
+  return titleEl.createEl("span", {
+    attr: {
+      "aria-hidden": "true"
+    },
+    cls: PINNED_FOLDER_ICON_CLASS
+  });
 }
 
 function getGlobalDocument(): Document | null {

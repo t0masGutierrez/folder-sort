@@ -24,3 +24,57 @@
   stroke-width: var(--icon-stroke);
   width: var(--icon-xs);
 }
+
+.folder-sort-hidden-folders {
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  margin: var(--size-4-4) 0;
+  overflow: hidden;
+}
+
+.folder-sort-hidden-folders-header {
+  padding: var(--size-4-4);
+}
+
+.folder-sort-hidden-folders-title {
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+}
+
+.folder-sort-hidden-folders-description {
+  color: var(--text-muted);
+  margin-top: var(--size-4-1);
+}
+
+.folder-sort-hidden-folder-row,
+.folder-sort-hidden-folders-empty,
+.folder-sort-hidden-folders-footer {
+  border-top: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-4);
+}
+
+.folder-sort-hidden-folder-row {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-4);
+}
+
+.folder-sort-hidden-folder-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.folder-sort-hidden-folder-action,
+.folder-sort-hidden-folders-action {
+  flex: 0 0 auto;
+}
+
+.folder-sort-hidden-folders-empty {
+  color: var(--text-muted);
+}
+
+.folder-sort-hidden-folders-footer {
+  display: flex;
+  justify-content: flex-end;
+}

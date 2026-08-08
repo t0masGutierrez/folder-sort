@@ -3,7 +3,6 @@ import { FileExplorerAdapter } from "./file-explorer-adapter";
 import { FolderSortSettingTab } from "./settings-tab";
 import {
   DEFAULT_SETTINGS,
-  normalizeIgnoredFolderPatterns,
   normalizeSettings
 } from "./settings";
 import type {
@@ -27,7 +26,6 @@ export default class FolderSortPlugin extends Plugin {
       app: this.app,
       getDirection: () => this.settings.folderSortDirection,
       getHiddenFolderPaths: () => new Set(this.settings.hiddenFolderPaths),
-      getIgnoredFolderPatterns: () => this.settings.ignoredFolderPatterns,
       getPlacement: () => this.settings.folderPlacement,
       getPinnedFolderPaths: () => new Set(this.settings.pinnedFolderPaths),
       isFolderPinned: (path) => this.settings.pinnedFolderPaths.includes(path),
@@ -119,24 +117,24 @@ export default class FolderSortPlugin extends Plugin {
     this.adapter?.refresh();
   }
 
+  async unhideFolder(path: string): Promise<void> {
+    const hiddenFolderPaths = removePath(this.settings.hiddenFolderPaths, path);
+
+    if (arraysEqual(hiddenFolderPaths, this.settings.hiddenFolderPaths)) {
+      return;
+    }
+
+    this.settings.hiddenFolderPaths = hiddenFolderPaths;
+    await this.saveSettings();
+    this.adapter?.refresh();
+  }
+
   async showHiddenFolders(): Promise<void> {
     if (this.settings.hiddenFolderPaths.length === 0) {
       return;
     }
 
     this.settings.hiddenFolderPaths = [];
-    await this.saveSettings();
-    this.adapter?.refresh();
-  }
-
-  async setIgnoredFolderPatterns(patterns: readonly string[]): Promise<void> {
-    const normalizedPatterns = normalizeIgnoredFolderPatterns(patterns);
-
-    if (arraysEqual(normalizedPatterns, this.settings.ignoredFolderPatterns)) {
-      return;
-    }
-
-    this.settings.ignoredFolderPatterns = normalizedPatterns;
     await this.saveSettings();
     this.adapter?.refresh();
   }

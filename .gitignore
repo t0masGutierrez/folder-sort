@@ -8,5 +8,8 @@ main.js
 # Local verification tests
 tests/
 
+# Local design and implementation notes
+/docs/
+
 # Local Obsidian data
 .obsidian/

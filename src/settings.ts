@@ -2,10 +2,9 @@ import type { FolderPlacement, FolderSortDirection, FolderSortSettings } from ".
 
 export const DEFAULT_SETTINGS: FolderSortSettings = {
   compatibilityNoticeShown: false,
-  folderPlacement: "keep",
+  folderPlacement: "folders-first",
   folderSortDirection: "asc",
   hiddenFolderPaths: [],
-  ignoredFolderPatterns: [],
   pinnedFolderPaths: []
 };
 
@@ -27,13 +26,12 @@ export function normalizeSettings(data: unknown): FolderSortSettings {
     folderPlacement,
     folderSortDirection,
     hiddenFolderPaths: normalizePathList(saved.hiddenFolderPaths),
-    ignoredFolderPatterns: normalizeIgnoredFolderPatterns(saved.ignoredFolderPatterns),
     pinnedFolderPaths: normalizePathList(saved.pinnedFolderPaths)
   };
 }
 
 export function isFolderPlacement(value: unknown): value is FolderPlacement {
-  return value === "keep" || value === "folders-first" || value === "folders-last";
+  return value === "folders-first" || value === "folders-last";
 }
 
 export function isFolderSortDirection(value: unknown): value is FolderSortDirection {
@@ -45,21 +43,6 @@ export function keepExistingFolderPaths(
   isExistingFolderPath: (path: string) => boolean
 ): string[] {
   return normalizePathList(paths).filter(isExistingFolderPath);
-}
-
-export function normalizeIgnoredFolderPatterns(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return [
-    ...new Set(
-      value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0)
-    )
-  ].sort();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

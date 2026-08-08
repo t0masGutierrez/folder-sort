@@ -1,4 +1,4 @@
-export type FolderPlacement = "keep" | "folders-first" | "folders-last";
+export type FolderPlacement = "folders-first" | "folders-last";
 
 export type FolderSortDirection = "asc" | "desc";
 
@@ -7,7 +7,6 @@ export interface FolderSortSettings {
   folderPlacement: FolderPlacement;
   folderSortDirection: FolderSortDirection;
   hiddenFolderPaths: string[];
-  ignoredFolderPatterns: string[];
   pinnedFolderPaths: string[];
 }
 
@@ -25,7 +24,6 @@ export interface SortableTreeItem {
 
 export interface FolderActionState {
   hiddenFolderPaths?: ReadonlySet<string>;
-  ignoredFolderPatterns?: readonly string[];
   pinnedFolderPaths?: ReadonlySet<string>;
 }
 

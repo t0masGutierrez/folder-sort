@@ -1,10 +1,9 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { ButtonComponent, PluginSettingTab, Setting } from "obsidian";
 import { isFolderPlacement } from "./settings";
 import type FolderSortPlugin from "./main";
 import type { FolderPlacement } from "./types";
 
 const PLACEMENT_LABELS: Record<FolderPlacement, string> = {
-  keep: "Existing order",
   "folders-first": "Folders first",
   "folders-last": "Folders last"
 };
@@ -35,19 +34,53 @@ export class FolderSortSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(containerEl)
-      .setName("Ignore folder patterns")
-      .setDesc(
-        "Enter one vault-relative folder pattern per line. Examples: **/Templates and Archive/**."
-      )
-      .addTextArea((textArea) => {
-        textArea
-          .setValue(this.plugin.settings.ignoredFolderPatterns.join("\n"))
-          .setPlaceholder("**/Templates\nArchive/**");
-        textArea.inputEl.rows = 5;
-        textArea.inputEl.addEventListener("change", () => {
-          void this.plugin.setIgnoredFolderPatterns(textArea.getValue().split(/\r?\n/));
-        });
+    this.renderHiddenFolders(containerEl);
+  }
+
+  private renderHiddenFolders(containerEl: HTMLElement): void {
+    const hiddenFolderPaths = this.plugin.settings.hiddenFolderPaths;
+    const sectionEl = containerEl.createDiv({ cls: "folder-sort-hidden-folders" });
+    const headerEl = sectionEl.createDiv({ cls: "folder-sort-hidden-folders-header" });
+
+    headerEl.createDiv({
+      cls: "folder-sort-hidden-folders-title",
+      text: "Hidden folders"
+    });
+    headerEl.createDiv({
+      cls: "folder-sort-hidden-folders-description",
+      text: "Folders hidden from the File explorer."
+    });
+
+    const listEl = sectionEl.createDiv({ cls: "folder-sort-hidden-folders-list" });
+
+    if (hiddenFolderPaths.length === 0) {
+      listEl.createDiv({
+        cls: "folder-sort-hidden-folders-empty",
+        text: "No folders are hidden."
+      });
+      return;
+    }
+
+    for (const path of hiddenFolderPaths) {
+      const rowEl = listEl.createDiv({ cls: "folder-sort-hidden-folder-row" });
+      rowEl.createDiv({ cls: "folder-sort-hidden-folder-path", text: path });
+      const actionEl = rowEl.createDiv({ cls: "folder-sort-hidden-folder-action" });
+
+      new ButtonComponent(actionEl).setButtonText("Unhide").onClick(async () => {
+        await this.plugin.unhideFolder(path);
+        this.display();
+      });
+    }
+
+    const footerEl = sectionEl.createDiv({ cls: "folder-sort-hidden-folders-footer" });
+    const actionEl = footerEl.createDiv({ cls: "folder-sort-hidden-folders-action" });
+
+    new ButtonComponent(actionEl)
+      .setButtonText("Unhide all folders")
+      .setWarning()
+      .onClick(async () => {
+        await this.plugin.showHiddenFolders();
+        this.display();
       });
   }
 }

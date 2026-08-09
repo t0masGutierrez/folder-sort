@@ -207,7 +207,7 @@ export default class FolderSortPlugin extends Plugin {
     // Obsidian prefixes these with the plugin name in the command palette.
     this.addCommand({
       id: "set-a-to-z",
-      name: "A to Z",
+      name: "A to z",
       callback: () => {
         void this.setFolderSortDirection("asc");
       }
@@ -215,7 +215,7 @@ export default class FolderSortPlugin extends Plugin {
 
     this.addCommand({
       id: "set-z-to-a",
-      name: "Z to A",
+      name: "Z to a",
       callback: () => {
         void this.setFolderSortDirection("desc");
       }

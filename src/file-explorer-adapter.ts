@@ -384,13 +384,13 @@ export class FileExplorerAdapter {
 
     try {
       this.addMenuItem(menu, (item) => {
-        item.setTitle?.("Folder name (A to Z)");
+        item.setTitle?.("Folder name (a to z)");
         item.setChecked?.(this.options.getDirection() === "asc");
         item.onClick?.(() => this.setDirection("asc"));
       });
 
       this.addMenuItem(menu, (item) => {
-        item.setTitle?.("Folder name (Z to A)");
+        item.setTitle?.("Folder name (z to a)");
         item.setChecked?.(this.options.getDirection() === "desc");
         item.onClick?.(() => this.setDirection("desc"));
       });
@@ -643,7 +643,7 @@ function findFolderTitleElementByPath(path: string, root: Document | null): HTML
 }
 
 function createPinnedIconElement(titleEl: HTMLElement): HTMLElement | null {
-  return titleEl.createEl("span", {
+  return titleEl.createSpan({
     attr: {
       "aria-hidden": "true"
     },

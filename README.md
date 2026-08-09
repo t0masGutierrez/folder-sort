@@ -4,8 +4,8 @@ Folder Sort is an Obsidian plugin that adds folder sorting to the native File ex
 
 It adds two options directly under Obsidian's file-name sort options:
 
-- Folder name (A to Z)
-- Folder name (Z to A)
+- Folder name (a to z)
+- Folder name (z to a)
 
 Folder Sort only reorders folders. Files use Obsidian's built-in file sorting behavior. You can place folders first or last.
 
@@ -27,12 +27,12 @@ Folder Sort only reorders folders. Files use Obsidian's built-in file sorting be
 
 ## Usage
 
-Open the File explorer sort menu and choose either `Folder name (A to Z)` or `Folder name (Z to A)`.
+Open the File explorer sort menu and choose either `Folder name (a to z)` or `Folder name (z to a)`.
 
 You can also run these commands from the command palette:
 
-- Folder Sort: A to Z
-- Folder Sort: Z to A
+- Folder Sort: A to z
+- Folder Sort: Z to a
 - Folder Sort: Toggle
 
 The default direction is A-Z.

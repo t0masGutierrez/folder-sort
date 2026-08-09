@@ -1,8 +1,8 @@
 {
   "id": "folder-sort",
   "name": "Folder Sort",
-  "version": "0.1.9",
-  "minAppVersion": "1.5.0",
+  "version": "0.1.10",
+  "minAppVersion": "1.13.0",
   "description": "Sort folders A-Z or Z-A.",
   "author": "Tomas Gutierrez",
   "isDesktopOnly": false

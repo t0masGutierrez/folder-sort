@@ -23,10 +23,14 @@ fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
 VAULT="$1"
+if [[ ! -d "$VAULT/.obsidian" ]]; then
+  printf 'Expected an existing vault with a .obsidian directory: %s\n' "$VAULT" >&2
+  exit 66
+fi
 PLUGIN_DIR="$VAULT/.obsidian/plugins/folder-sort"
 
 printf 'Installing dependencies...\n'
-(cd "$PROJECT_ROOT" && npm install --include=dev --no-audit --fund=false --silent)
+(cd "$PROJECT_ROOT" && npm ci --include=dev --no-audit --fund=false --silent)
 (cd "$PROJECT_ROOT" && npm run --silent build)
 
 for artifact in main.js manifest.json; do

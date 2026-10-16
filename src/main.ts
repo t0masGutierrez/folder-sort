@@ -74,12 +74,11 @@ export default class FolderSortPlugin extends Plugin {
         }
       })
     );
-
-    this.register(() => this.adapter?.detach());
   }
 
   override onunload(): void {
     this.adapter?.detach();
+    this.adapter = null;
   }
 
   async setFolderSortDirection(direction: FolderSortDirection): Promise<void> {
@@ -145,7 +144,7 @@ export default class FolderSortPlugin extends Plugin {
       supported: false
     };
 
-    await this.handleAttachResult(result, options);
+    if (this.adapter) await this.handleAttachResult(result, options);
     return result;
   }
 

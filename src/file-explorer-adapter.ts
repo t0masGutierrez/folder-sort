@@ -79,7 +79,6 @@ interface MenuState {
   folderPath: string | null;
   folderPinItem: MenuItemLike | null;
   injected: boolean;
-  moveFolderSection: string | null;
   sawFileNameAsc: boolean;
   sawMoveFolderTo: boolean;
 }
@@ -90,6 +89,7 @@ export class FileExplorerAdapter {
   private patchingMenu = false;
   private readonly patchedViews = new Map<FileExplorerViewLike, ViewPatch>();
   private pinnedFolderIconSyncQueued = false;
+  private cancelIconSync: (() => void) | null = null;
 
   constructor(private readonly options: AdapterOptions) {}
 
@@ -97,6 +97,13 @@ export class FileExplorerAdapter {
     this.installMenuPatch();
 
     const views = this.getFileExplorerViews();
+    const currentViews = new Set(views);
+    for (const [view, patch] of this.patchedViews) {
+      if (!currentViews.has(view)) {
+        view.getSortedFolderItems = patch.originalGetSortedFolderItems;
+        this.patchedViews.delete(view);
+      }
+    }
     let attachedViews = 0;
 
     for (const view of views) {
@@ -113,6 +120,9 @@ export class FileExplorerAdapter {
   }
 
   detach(): void {
+    this.cancelIconSync?.();
+    this.cancelIconSync = null;
+    this.pinnedFolderIconSyncQueued = false;
     for (const [view, patch] of this.patchedViews) {
       view.getSortedFolderItems = patch.originalGetSortedFolderItems;
     }
@@ -131,8 +141,8 @@ export class FileExplorerAdapter {
   }
 
   setDirection(direction: FolderSortDirection): void {
+    // The plugin saves the choice and refreshes all attached panes.
     this.options.onSelectDirection(direction);
-    this.refresh();
   }
 
   registerFolderContextMenu(menu: MenuLike, folder: SortableAbstractFile): void {
@@ -217,9 +227,8 @@ export class FileExplorerAdapter {
     const isPatchingMenu = (): boolean => this.patchingMenu;
     const recordMenuItem = (
       menu: MenuLike,
-      title: string | null,
-      section: string | null
-    ): void => this.recordMenuItem(menu, title, section);
+      title: string | null
+    ): void => this.recordMenuItem(menu, title);
 
     // The native sort menu is identified by the neighboring file-name sort titles.
     menuPrototype.addItem = function patchedAddItem(
@@ -231,10 +240,8 @@ export class FileExplorerAdapter {
       }
 
       let capturedTitle: string | null = null;
-      let capturedSection: string | null = null;
       const result = originalAddItem.call(this, (item: MenuItemLike) => {
         const originalSetTitle = item.setTitle;
-        const originalSetSection = item.setSection;
 
         if (typeof originalSetTitle === "function") {
           item.setTitle = function patchedSetTitle(title: string | DocumentFragment): unknown {
@@ -244,28 +251,16 @@ export class FileExplorerAdapter {
           };
         }
 
-        if (typeof originalSetSection === "function") {
-          item.setSection = function patchedSetSection(section: string): unknown {
-            capturedSection = section;
-
-            return originalSetSection.call(this, section);
-          };
-        }
-
         try {
           return callback(item);
         } finally {
           if (originalSetTitle) {
             item.setTitle = originalSetTitle;
           }
-
-          if (originalSetSection) {
-            item.setSection = originalSetSection;
-          }
         }
       });
 
-      recordMenuItem(this, capturedTitle, capturedSection);
+      recordMenuItem(this, capturedTitle);
       return result;
     };
 
@@ -285,8 +280,7 @@ export class FileExplorerAdapter {
 
   private recordMenuItem(
     menu: MenuLike,
-    title: string | null,
-    section: string | null
+    title: string | null
   ): void {
     if (!title) {
       return;
@@ -296,7 +290,6 @@ export class FileExplorerAdapter {
 
     if (MOVE_FOLDER_TITLES.has(title)) {
       state.sawMoveFolderTo = true;
-      state.moveFolderSection = section ?? state.moveFolderSection;
       this.injectFolderActionsIfReady(menu);
       this.updateFolderActionItems(state);
       return;
@@ -336,7 +329,7 @@ export class FileExplorerAdapter {
 
     try {
       const pinItem = this.addMenuItem(menu, (item) => {
-        setMenuItemSection(item, FOLDER_ACTION_SECTION);
+        item.setSection?.(FOLDER_ACTION_SECTION);
         item.onClick?.(() => {
           const path = state.folderPath;
 
@@ -353,7 +346,7 @@ export class FileExplorerAdapter {
       }
 
       const hideItem = this.addMenuItem(menu, (item) => {
-        setMenuItemSection(item, FOLDER_ACTION_SECTION);
+        item.setSection?.(FOLDER_ACTION_SECTION);
         item.onClick?.(() => {
           const path = state.folderPath;
 
@@ -435,7 +428,7 @@ export class FileExplorerAdapter {
     }
 
     this.pinnedFolderIconSyncQueued = true;
-    scheduleAfterRender(() => {
+    this.cancelIconSync = scheduleAfterRender(() => {
       this.pinnedFolderIconSyncQueued = false;
       this.syncPinnedFolderIconsInDocument();
     });
@@ -462,7 +455,6 @@ export class FileExplorerAdapter {
       folderPath: null,
       folderPinItem: null,
       injected: false,
-      moveFolderSection: null,
       sawFileNameAsc: false,
       sawMoveFolderTo: false
     };
@@ -517,10 +509,14 @@ function syncPinnedFolderIconsInDocument(
     return;
   }
 
-  cleanupPinnedFolderIcons(root);
   const matchedPinnedPaths = new Set<string>();
 
-  for (const titleEl of findAllInRoot(root, FOLDER_TITLE_SELECTOR)) {
+  // Include old marked rows so reused or detached folder rows lose stale pins.
+  const titles = new Set([
+    ...findAllInRoot(root, FOLDER_TITLE_SELECTOR),
+    ...findAllInRoot(root, `.${PINNED_FOLDER_CLASS}`)
+  ]);
+  for (const titleEl of titles) {
     const path = getElementPath(titleEl);
 
     if (!path) {
@@ -569,7 +565,9 @@ function syncPinnedFolderIcon(
     return;
   }
 
-  setIcon?.(iconEl, "pin");
+  if (!existingIcon) {
+    setIcon?.(iconEl, "pin");
+  }
 }
 
 function getFolderTitleElement(item: SortableTreeItem, path: string): HTMLElement | null {
@@ -683,16 +681,24 @@ function getElementAttribute(element: HTMLElement, attribute: string): string {
   return typeof value === "string" ? value : "";
 }
 
-function scheduleAfterRender(callback: () => void): void {
-  const activeWindowLike = getActiveWindow();
-  const requestFrame = activeWindowLike?.requestAnimationFrame.bind(activeWindowLike);
-
-  if (typeof requestFrame !== "function") {
+function scheduleAfterRender(callback: () => void): () => void {
+  const window = getActiveWindow();
+  if (!window?.requestAnimationFrame) {
     callback();
-    return;
+    return () => {};
   }
 
-  requestFrame(() => requestFrame(callback));
+  let cancelled = false;
+  let frame = window.requestAnimationFrame(() => {
+    if (cancelled) return;
+    frame = window.requestAnimationFrame(() => {
+      if (!cancelled) callback();
+    });
+  });
+  return () => {
+    cancelled = true;
+    window.cancelAnimationFrame?.(frame);
+  };
 }
 
 function cssEscape(value: string): string {
@@ -718,12 +724,6 @@ function getMenuTitleText(title: string | DocumentFragment): string | null {
   const normalizedText = text?.trim();
 
   return normalizedText ? normalizedText : null;
-}
-
-function setMenuItemSection(item: MenuItemLike, section: string | null): void {
-  if (section) {
-    item.setSection?.(section);
-  }
 }
 
 function isHTMLElementLike(value: unknown): value is HTMLElement {
